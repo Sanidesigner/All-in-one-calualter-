@@ -1,0 +1,1192 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="All-in-One Calculator - Comprehensive tool for basic, scientific, financial, health, and conversion calculations">
+    <meta name="keywords" content="calculator, all-in-one calculator, BMI calculator, currency converter, financial calculator, scientific calculator">
+    <meta name="author" content="Sani Bhai">
+    <meta name="robots" content="index, follow">
+    <title>All-in-One Calculator</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Arial', sans-serif;
+        }
+
+        body {
+            line-height: 1.6;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        body.light {
+            background: #f4f4f9;
+            color: #333;
+        }
+
+        body.dark {
+            background: #1a1a2e;
+            color: #e0e0e0;
+        }
+
+        header {
+            background: linear-gradient(135deg, #6b48ff, #00d4ff);
+            padding: 20px;
+            text-align: center;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        header h1 {
+            font-size: 2.5rem;
+            color: #fff;
+            animation: fadeIn 1s ease-in;
+        }
+
+        .auth-buttons {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+        }
+
+        .auth-buttons button {
+            background: #fff;
+            color: #333;
+            border: none;
+            padding: 10px 20px;
+            margin-left: 10px;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: transform 0.3s, background 0.3s;
+        }
+
+        .auth-buttons button:hover {
+            transform: scale(1.1);
+            background: #f0f0f0;
+        }
+
+        .search-bar {
+            margin: 20px auto;
+            max-width: 600px;
+            position: relative;
+        }
+
+        .search-bar input {
+            width: 100%;
+            padding: 12px 40px 12px 20px;
+            border: none;
+            border-radius: 25px;
+            font-size: 1rem;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            transition: box-shadow 0.3s;
+        }
+
+        .search-bar input:focus {
+            outline: none;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+
+        .search-bar i {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #6b48ff;
+            font-size: 1.2rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .category {
+            margin: 40px 0;
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+        }
+
+        .category.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .category h2 {
+            font-size: 2rem;
+            margin-bottom: 20px;
+            color: inherit;
+            opacity: 0;
+            transform: translateX(-30px);
+            transition: opacity 0.8s ease-out, transform 0.8s ease-out;
+        }
+
+        .category.visible h2 {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .calculator-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .calculator-card {
+            background: #fff;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+            opacity: 0;
+            transform: scale(0.95);
+            transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+        }
+
+        .calculator-card.visible {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        body.dark .calculator-card {
+            background: #2a2a4e;
+        }
+
+        .calculator-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 15px rgba(0,0,0,0.2);
+        }
+
+        .calculator-card.hidden {
+            display: none;
+        }
+
+        .calculator-card i {
+            font-size: 2rem;
+            color: #6b48ff;
+            margin-bottom: 10px;
+            opacity: 0;
+            transform: rotate(-10deg);
+            transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+        }
+
+        .calculator-card.visible i {
+            opacity: 1;
+            transform: rotate(0);
+        }
+
+        .calculator-card h3 {
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+        }
+
+        .calculator-card input, .calculator-card button, .calculator-card select {
+            width: 100%;
+            padding: 10px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 1rem;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+        }
+
+        .calculator-card.visible input,
+        .calculator-card.visible button,
+        .calculator-card.visible select {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .calculator-card button {
+            background: #6b48ff;
+            color: #fff;
+            border: none;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .calculator-card button:hover {
+            background: #5439cc;
+        }
+
+        .result {
+            margin-top: 10px;
+            font-weight: bold;
+            opacity: 0;
+            transition: opacity 0.5s ease-out;
+        }
+
+        .calculator-card.visible .result {
+            opacity: 1;
+        }
+
+        .theme-toggle {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #6b48ff;
+            color: #fff;
+            border: none;
+            padding: 15px;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            transition: transform 0.3s;
+        }
+
+        .theme-toggle:hover {
+            transform: rotate(360deg);
+        }
+
+        footer {
+            text-align: center;
+            padding: 20px;
+            background: #333;
+            color: #fff;
+            margin-top: 40px;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+        }
+
+        footer.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        body.dark footer {
+            background: #0f0f1a;
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+
+        .modal-content {
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 400px;
+            position: relative;
+            opacity: 0;
+            transform: scale(0.8);
+            transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+        }
+
+        .modal-content.visible {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        body.dark .modal-content {
+            background: #2a2a4e;
+        }
+
+        .modal-content h2 {
+            margin-bottom: 20px;
+        }
+
+        .modal-content input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+
+        .modal-content button {
+            width: 100%;
+            padding: 10px;
+            background: #6b48ff;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .modal-content button:hover {
+            background: #5439cc;
+        }
+
+        .close {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideInLeft {
+            from { transform: translateX(-50px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        @keyframes scaleUp {
+            from { transform: scale(0.95); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        @keyframes rotateIn {
+            from { transform: rotate(-10deg); opacity: 0; }
+            to { transform: rotate(0); opacity: 1; }
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 1.8rem;
+            }
+
+            .auth-buttons button {
+                padding: 8px 15px;
+                font-size: 0.9rem;
+            }
+
+            .calculator-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .search-bar {
+                margin: 10px;
+            }
+
+            .search-bar input {
+                padding: 10px 35px 10px 15px;
+                font-size: 0.9rem;
+            }
+        }
+    </style>
+</head>
+<body class="light">
+    <header>
+        <h1>All-in-One Calculator</h1>
+        <div class="auth-buttons">
+            <button onclick="openModal('loginModal')">Login</button>
+            <button onclick="openModal('signupModal')">Signup</button>
+        </div>
+        <div class="search-bar">
+            <input type="text" id="searchInput" placeholder="Search calculators (e.g., BMI, Loan)">
+            <i class="fas fa-search"></i>
+        </div>
+    </header>
+
+    <!-- Login Modal -->
+    <div id="loginModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('loginModal')">×</span>
+            <h2>Login</h2>
+            <input type="email" id="loginEmail" placeholder="Email">
+            <input type="password" id="loginPassword" placeholder="Password">
+            <button onclick="handleLogin()">Login</button>
+        </div>
+    </div>
+
+    <!-- Signup Modal -->
+    <div id="signupModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('signupModal')">×</span>
+            <h2>Signup</h2>
+            <input type="text" id="signupName" placeholder="Full Name">
+            <input type="email" id="signupEmail" placeholder="Email">
+            <input type="password" id="signupPassword" placeholder="Password">
+            <button onclick="handleSignup()">Signup</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Basic Calculators -->
+        <section class="category">
+            <h2>Basic Calculators</h2>
+            <div class="calculator-grid">
+                <div class="calculator-card" data-name="Basic Calculator">
+                    <i class="fas fa-calculator"></i>
+                    <h3>Basic Calculator</h3>
+                    <input type="text" id="basicInput" placeholder="Enter expression (e.g., 2 + 3)">
+                    <button onclick="calculateBasic()">Calculate</button>
+                    <div class="result" id="basicResult"></div>
+                </div>
+                <div class="calculator-card" data-name="Scientific Calculator">
+                    <i class="fas fa-square-root-alt"></i>
+                    <h3>Scientific Calculator</h3>
+                    <input type="text" id="sciInput" placeholder="Enter expression (e.g., sin(30))">
+                    <button onclick="calculateScientific()">Calculate</button>
+                    <div class="result" id="sciResult"></div>
+                </div>
+                <div class="calculator-card" data-name="Percentage Calculator">
+                    <i class="fas fa-percentage"></i>
+                    <h3>Percentage Calculator</h3>
+                    <input type="number" id="percentValue" placeholder="Value">
+                    <input type="number" id="percent" placeholder="Percentage">
+                    <button onclick="calculatePercentage()">Calculate</button>
+                    <div class="result" id="percentResult"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Health Calculators -->
+        <section class="category">
+            <h2>Health Calculators</h2>
+            <div class="calculator-grid">
+                <div class="calculator-card" data-name="BMI Calculator">
+                    <i class="fas fa-weight"></i>
+                    <h3>BMI Calculator</h3>
+                    <input type="number" id="weight" placeholder="Weight (kg)">
+                    <input type="number" id="height" placeholder="Height (cm)">
+                    <button onclick="calculateBMI()">Calculate</button>
+                    <div class="result" id="bmiResult"></div>
+                </div>
+                <div class="calculator-card" data-name="Body Fat Calculator">
+                    <i class="fas fa-heartbeat"></i>
+                    <h3>Body Fat Calculator</h3>
+                    <input type="number" id="bfWeight" placeholder="Weight (kg)">
+                    <input type="number" id="bfWaist" placeholder="Waist (cm)">
+                    <button onclick="calculateBodyFat()">Calculate</button>
+                    <div class="result" id="bfResult"></div>
+                </div>
+                <div class="calculator-card" data-name="Calorie Calculator">
+                    <i class="fas fa-fire"></i>
+                    <h3>Calorie Calculator</h3>
+                    <input type="number" id="calAge" placeholder="Age">
+                    <input type="number" id="calWeight" placeholder="Weight (kg)">
+                    <button onclick="calculateCalorie()">Calculate</button>
+                    <div class="result" id="calResult"></div>
+                </div>
+                <div class="calculator-card" data-name="Pregnancy Due Date Calculator">
+                    <i class="fas fa-baby"></i>
+                    <h3>Pregnancy Due Date</h3>
+                    <input type="date" id="lmpDate" placeholder="Last Menstrual Period">
+                    <button onclick="calculatePregnancy()">Calculate</button>
+                    <div class="result" id="pregResult"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Financial Calculators -->
+        <section class="category">
+            <h2>Financial Calculators</h2>
+            <div class="calculator-grid">
+                <div class="calculator-card" data-name="GST Calculator">
+                    <i class="fas fa-money-bill"></i>
+                    <h3>GST Calculator</h3>
+                    <input type="number" id="gstAmount" placeholder="Amount">
+                    <input type="number" id="gstRate" placeholder="GST Rate (%)">
+                    <button onclick="calculateGST()">Calculate</button>
+                    <div class="result" id="gstResult"></div>
+                </div>
+                <div class="calculator-card" data-name="Loan Calculator">
+                    <i class="fas fa-hand-holding-usd"></i>
+                    <h3>Loan Calculator</h3>
+                    <input type="number" id="loanAmount" placeholder="Loan Amount">
+                    <input type="number" id="loanRate" placeholder="Interest Rate (%)">
+                    <input type="number" id="loanTerm" placeholder="Term (years)">
+                    <button onclick="calculateLoan()">Calculate</button>
+                    <div class="result" id="loanResult"></div>
+                </div>
+                <div class="calculator-card" data-name="EMI Calculator">
+                    <i class="fas fa-home"></i>
+                    <h3>EMI Calculator</h3>
+                    <input type="number" id="emiAmount" placeholder="Loan Amount">
+                    <input type="number" id="emiRate" placeholder="Interest Rate (%)">
+                    <input type="number" id="emiTerm" placeholder="Term (months)">
+                    <button onclick="calculateEMI()">Calculate</button>
+                    <div class="result" id="emiResult"></div>
+                </div>
+                <div class="calculator-card" data-name="SIP Calculator">
+                    <i class="fas fa-chart-line"></i>
+                    <h3>SIP Calculator</h3>
+                    <input type="number" id="sipAmount" placeholder="Monthly Investment">
+                    <input type="number" id="sipRate" placeholder="Expected Return (%)">
+                    <input type="number" id="sipTerm" placeholder="Term (years)">
+                    <button onclick="calculateSIP()">Calculate</button>
+                    <div class="result" id="sipResult"></div>
+                </div>
+                <div class="calculator-card" data-name="FD Calculator">
+                    <i class="fas fa-piggy-bank"></i>
+                    <h3>FD Calculator</h3>
+                    <input type="number" id="fdAmount" placeholder="Deposit Amount">
+                    <input type="number" id="fdRate" placeholder="Interest Rate (%)">
+                    <input type="number" id="fdTerm" placeholder="Term (years)">
+                    <button onclick="calculateFD()">Calculate</button>
+                    <div class="result" id="fdResult"></div>
+                </div>
+                <div class="calculator-card" data-name="RD Calculator">
+                    <i class="fas fa-money-check"></i>
+                    <h3>RD Calculator</h3>
+                    <input type="number" id="rdAmount" placeholder="Monthly Deposit">
+                    <input type="number" id="rdRate" placeholder="Interest Rate (%)">
+                    <input type="number" id="rdTerm" placeholder="Term (years)">
+                    <button onclick="calculateRD()">Calculate</button>
+                    <div class="result" id="rdResult"></div>
+                </div>
+                <div class="calculator-card" data-name="Discount Calculator">
+                    <i class="fas fa-tag"></i>
+                    <h3>Discount Calculator</h3>
+                    <input type="number" id="discPrice" placeholder="Original Price">
+                    <input type="number" id="discRate" placeholder="Discount (%)">
+                    <button onclick="calculateDiscount()">Calculate</button>
+                    <div class="result" id="discResult"></div>
+                </div>
+                <div class="calculator-card" data-name="Income Tax Calculator">
+                    <i class="fas fa-calculator"></i>
+                    <h3>Income Tax Calculator</h3>
+                    <input type="number" id="taxIncome" placeholder="Annual Income">
+                    <button onclick="calculateTax()">Calculate</button>
+                    <div class="result" id="taxResult"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Conversion Calculators -->
+        <section class="category">
+            <h2>Conversion Calculators</h2>
+            <div class="calculator-grid">
+                <div class="calculator-card" data-name="Currency Converter">
+                    <i class="fas fa-money-bill"></i>
+                    <h3>Currency Converter</h3>
+                    <input type="number" id="amount" placeholder="Amount">
+                    <select id="fromCurrency">
+                        <option value="USD">USD</option>
+                        <option value="EUR">EUR</option>
+                        <option value="INR">INR</option>
+                    </select>
+                    <select id="toCurrency">
+                        <option value="USD">USD</option>
+                        <option value="EUR">EUR</option>
+                        <option value="INR">INR</option>
+                    </select>
+                    <button onclick="convertCurrency()">Convert</button>
+                    <div class="result" id="currencyResult"></div>
+                </div>
+                <div class="calculator-card" data-name="Unit Converter">
+                    <i class="fas fa-ruler"></i>
+                    <h3>Unit Converter</h3>
+                    <input type="number" id="unitValue" placeholder="Value">
+                    <select id="unitType">
+                        <option value="length">Length (m to km)</option>
+                        <option value="weight">Weight (kg to g)</option>
+                    </select>
+                    <button onclick="convertUnit()">Convert</button>
+                    <div class="result" id="unitResult"></div>
+                </div>
+                <div class="calculator-card" data-name="Temperature Converter">
+                    <i class="fas fa-thermometer"></i>
+                    <h3>Temperature Converter</h3>
+                    <input type="number" id="tempValue" placeholder="Temperature">
+                    <select id="tempUnit">
+                        <option value="CtoF">C to F</option>
+                        <option value="FtoC">F to C</option>
+                    </select>
+                    <button onclick="convertTemperature()">Convert</button>
+                    <div class="result" id="tempResult"></div>
+                </div>
+            </section>
+
+        <!-- Time and Date Calculators -->
+        <section class="category">
+            <h2>Time and Date Calculators</h2>
+            <div class="calculator-grid">
+                <div class="calculator-card" data-name="Age Calculator">
+                    <i class="fas fa-calendar"></i>
+                    <h3>Age Calculator</h3>
+                    <input type="date" id="dob" placeholder="Date of Birth">
+                    <button onclick="calculateAge()">Calculate</button>
+                    <div class="result" id="ageResult"></div>
+                </div>
+                <div class="calculator-card" data-name="Date Calculator">
+                    <i class="fas fa-calendar-alt"></i>
+                    <h3>Date Calculator</h3>
+                    <input type="date" id="date1" placeholder="Start Date">
+                    <input type="date" id="date2" placeholder="End Date">
+                    <button onclick="calculateDate()">Calculate</button>
+                    <div class="result" id="dateResult"></div>
+                </div>
+                <div class="calculator-card" data-name="Time Calculator">
+                    <i class="fas fa-clock"></i>
+                    <h3>Time Calculator</h3>
+                    <input type="time" id="time1" placeholder="Start Time">
+                    <input type="time" id="time2" placeholder="End Time">
+                    <button onclick="calculateTime()">Calculate</button>
+                    <invalidate class="result" id="timeResult"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Mathematical Calculators -->
+        <section class="category">
+            <h2>Mathematical Calculators</h2>
+            <div class="calculator-grid">
+                <div class="calculator-card" data-name="Area Calculator">
+                    <i class="fas fa-ruler-combined"></i>
+                    <h3>Area Calculator</h3>
+                    <input type="number" id="areaLength" placeholder="Length">
+                    <input type="number" id="areaWidth" placeholder="Width">
+                    <button onclick="calculateArea()">Calculate</button>
+                    <div class="result" id="areaResult"></div>
+                </div>
+                <div class="calculator-card" data-name="Volume Calculator">
+                    <i class="fas fa-cube"></i>
+                    <h3>Volume Calculator</h3>
+                    <input type="number" id="volLength" placeholder="Length">
+                    <input type="number" id="volWidth" placeholder="Width">
+                    <input type="number" id="volHeight" placeholder="Height">
+                    <button onclick="calculateVolume()">Calculate</button>
+                    <div class="result" id="volResult"></div>
+                </div>
+                <div class="calculator-card" data-name="Speed Calculator">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <h3>Speed Calculator</h3>
+                    <input type="number" id="distance" placeholder="Distance (km)">
+                    <input type="number" id="time" placeholder="Time (hr)">
+                    <button onclick="calculateSpeed()">Calculate</button>
+                    <div class="result" id="speedResult"></div>
+                </div>
+                <div class="calculator-card" data-name="Square Root Calculator">
+                    <i class="fas fa-square-root-alt"></i>
+                    <h3>Square Root Calculator</h3>
+                    <input type="number" id="sqrtValue" placeholder="Number">
+                    <button onclick="calculateSqrt()">Calculate</button>
+                    <div class="result" id="sqrtResult"></div>
+                </div>
+                <div class="calculator-card" data-name="Square & Cube Calculator">
+                    <i class="fas fa-superscript"></i>
+                    <h3>Square & Cube Calculator</h3>
+                    <input type="number" id="scValue" placeholder="Number">
+                    <button onclick="calculateSquareCube()">Calculate</button>
+                    <div class="result" id="scResult"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Miscellaneous Calculators -->
+        <section class="category">
+            <h2>Miscellaneous Calculators</h2>
+            <div class="calculator-grid">
+                <div class="calculator-card" data-name="Love Calculator">
+                    <i class="fas fa-heart"></i>
+                    <h3>Love Calculator</h3>
+                    <input type="text" id="name1" placeholder="Your Name">
+                    <input type="text" id="name2" placeholder="Partner's Name">
+                    <button onclick="calculateLove()">Calculate</button>
+                    <div class="result" id="loveResult"></div>
+                </div>
+                <div class="calculator-card" data-name="Number to Words Converter">
+                    <i class="fas fa-font"></i>
+                    <h3>Number to Words</h3>
+                    <input type="number" id="numToWord" placeholder="Number">
+                    <button onclick="convertNumToWord()">Convert</button>
+                    <div class="result" id="numToWordResult"></div>
+                </div>
+                <div class="calculator-card" data-name="Words to Number Converter">
+                    <i class="fas fa-text-width"></i>
+                    <h3>Words to Number</h3>
+                    <input type="text" id="wordToNum" placeholder="Words (e.g., one hundred)">
+                    <button onclick="convertWordToNum()">Convert</button>
+                    <div class="result" id="wordToNumResult"></div>
+                </div>
+                <div class="calculator-card" data-name="IP Address Calculator">
+                    <i class="fas fa-network-wired"></i>
+                    <h3>IP Address Calculator</h3>
+                    <input type="text" id="ipAddress" placeholder="IP Address (e.g., 192.168.1.1)">
+                    <button onclick="calculateIP()">Calculate</button>
+                    <div class="result" id="ipResult"></div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <button class="theme-toggle" onclick="toggleTheme()">
+        <i class="fas fa-moon"></i>
+    </button>
+
+    <footer>
+        <p>Created by Sani Bhai © 2025</p>
+    </footer>
+
+    <script>
+        // Theme Toggle
+        function toggleTheme() {
+            document.body.classList.toggle('light');
+            document.body.classList.toggle('dark');
+            const icon = document.querySelector('.theme-toggle i');
+            icon.classList.toggle('fa-moon');
+            icon.classList.toggle('fa-sun');
+        }
+
+        // Modal Functions
+        function openModal(modalId) {
+            const modal = document.getElementById(modalId);
+            modal.style.display = 'flex';
+            setTimeout(() => modal.querySelector('.modal-content').classList.add('visible'), 10);
+        }
+
+        function closeModal(modalId) {
+            const modal = document.getElementById(modalId);
+            modal.querySelector('.modal-content').classList.remove('visible');
+            setTimeout(() => modal.style.display = 'none', 300);
+        }
+
+        function handleLogin() {
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            if (email && password) {
+                alert('Login successful! (Demo)');
+                closeModal('loginModal');
+            } else {
+                alert('Please fill all fields');
+            }
+        }
+
+        function handleSignup() {
+            const name = document.getElementById('signupName').value;
+            const email = document.getElementById('signupEmail').value;
+            const password = document.getElementById('signupPassword').value;
+            if (name && email && password) {
+                alert('Signup successful! (Demo)');
+                closeModal('signupModal');
+            } else {
+                alert('Please fill all fields');
+            }
+        }
+
+        // Search Functionality
+        document.getElementById('searchInput').addEventListener('input', function() {
+            const query = this.value.toLowerCase();
+            const cards = document.querySelectorAll('.calculator-card');
+            const categories = document.querySelectorAll('.category');
+
+            cards.forEach(card => {
+                const name = card.getAttribute('data-name').toLowerCase();
+                card.classList.toggle('hidden', !name.includes(query));
+            });
+
+            categories.forEach(category => {
+                const visibleCards = category.querySelectorAll('.calculator-card:not(.hidden)');
+                category.style.display = visibleCards.length > 0 ? 'block' : 'none';
+            });
+        });
+
+        // Scroll Animations
+        const animateElements = document.querySelectorAll('.category, .calculator-card, footer');
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                }
+            });
+        }, { threshold: 0.1 });
+
+        animateElements.forEach(el => observer.observe(el));
+
+        // Calculator Functions
+        function calculateBasic() {
+            const input = document.getElementById('basicInput').value;
+            try {
+                const result = eval(input); // Note: Use math.js for production
+                document.getElementById('basicResult').textContent = `Result: ${result}`;
+            } catch (error) {
+                document.getElementById('basicResult').textContent = 'Error: Invalid expression';
+            }
+        }
+
+        function calculateScientific() {
+            const input = document.getElementById('sciInput').value;
+            try {
+                const result = eval(input.replace('sin', 'Math.sin').replace('cos', 'Math.cos')); // Simplified
+                document.getElementById('sciResult').textContent = `Result: ${result.toFixed(2)}`;
+            } catch (error) {
+                document.getElementById('sciResult').textContent = 'Error: Invalid expression';
+            }
+        }
+
+        function calculatePercentage() {
+            const value = parseFloat(document.getElementById('percentValue').value);
+            const percent = parseFloat(document.getElementById('percent').value);
+            if (value >= 0 && percent >= 0) {
+                const result = (value * percent) / 100;
+                document.getElementById('percentResult').textContent = `Result: ${result}`;
+            } else {
+                document.getElementById('percentResult').textContent = 'Please enter valid values';
+            }
+        }
+
+        function calculateBMI() {
+            const weight = parseFloat(document.getElementById('weight').value);
+            const height = parseFloat(document.getElementById('height').value) / 100;
+            if (weight > 0 && height > 0) {
+                const bmi = (weight / (height * height)).toFixed(2);
+                let category = bmi < 18.5 ? 'Underweight' : bmi < 25 ? 'Normal' : bmi < 30 ? 'Overweight' : 'Obese';
+                document.getElementById('bmiResult').textContent = `BMI: ${bmi} (${category})`;
+            } else {
+                document.getElementById('bmiResult').textContent = 'Please enter valid values';
+            }
+        }
+
+        function calculateBodyFat() {
+            const weight = parseFloat(document.getElementById('bfWeight').value);
+            const waist = parseFloat(document.getElementById('bfWaist').value);
+            if (weight > 0 && waist > 0) {
+                const bf = ((waist * 0.74) - (weight * 0.082) + 34.89) / weight * 100; // Simplified formula
+                document.getElementById('bfResult').textContent = `Body Fat: ${bf.toFixed(2)}%`;
+            } else {
+                document.getElementById('bfResult').textContent = 'Please enter valid values';
+            }
+        }
+
+        function calculateCalorie() {
+            const age = parseFloat(document.getElementById('calAge').value);
+            const weight = parseFloat(document.getElementById('calWeight').value);
+            if (age > 0 && weight > 0) {
+                const calories = 10 * weight + 6.25 * 170 - 5 * age + 5; // Mifflin-St Jeor for men
+                document.getElementById('calResult').textContent = `Daily Calories: ${calories.toFixed(0)} kcal`;
+            } else {
+                document.getElementById('calResult').textContent = 'Please enter valid values';
+            }
+        }
+
+        function calculatePregnancy() {
+            const lmp = new Date(document.getElementById('lmpDate').value);
+            if (lmp) {
+                const dueDate = new Date(lmp);
+                dueDate.setDate(lmp.getDate() + 280); // 40 weeks
+                document.getElementById('pregResult').textContent = `Due Date: ${dueDate.toLocaleDateString()}`;
+            } else {
+                document.getElementById('pregResult').textContent = 'Please enter a valid date';
+            }
+        }
+
+        function calculateGST() {
+            const amount = parseFloat(document.getElementById('gstAmount').value);
+            const rate = parseFloat(document.getElementById('gstRate').value);
+            if (amount >= 0 && rate >= 0) {
+                const gst = (amount * rate) / 100;
+                document.getElementById('gstResult').textContent = `GST: ${gst.toFixed(2)}, Total: ${(amount + gst).toFixed(2)}`;
+            } else {
+                document.getElementById('gstResult').textContent = 'Please enter valid values';
+            }
+        }
+
+        function calculateLoan() {
+            const amount = parseFloat(document.getElementById('loanAmount').value);
+            const rate = parseFloat(document.getElementById('loanRate').value) / 100 / 12;
+            const term = parseFloat(document.getElementById('loanTerm').value) * 12;
+            if (amount > 0 && rate >= 0 && term > 0) {
+                const emi = amount * rate * (1 + rate) ** term / ((1 + rate) ** term - 1);
+                document.getElementById('loanResult').textContent = `Monthly EMI: ${emi.toFixed(2)}`;
+            } else {
+                document.getElementById('loanResult').textContent = 'Please enter valid values';
+            }
+        }
+
+        function calculateEMI() {
+            const amount = parseFloat(document.getElementById('emiAmount').value);
+            const rate = parseFloat(document.getElementById('emiRate').value) / 100 / 12;
+            const term = parseFloat(document.getElementById('emiTerm').value);
+            if (amount > 0 && rate >= 0 && term > 0) {
+                const emi = amount * rate * (1 + rate) ** term / ((1 + rate) ** term - 1);
+                document.getElementById('emiResult').textContent = `EMI: ${emi.toFixed(2)}`;
+            } else {
+                document.getElementById('emiResult').textContent = 'Please enter valid values';
+            }
+        }
+
+        function calculateSIP() {
+            const amount = parseFloat(document.getElementById('sipAmount').value);
+            const rate = parseFloat(document.getElementById('sipRate').value) / 100 / 12;
+            const term = parseFloat(document.getElementById('sipTerm').value) * 12;
+            if (amount > 0 && rate >= 0 && term > 0) {
+                const futureValue = amount * (((1 + rate) ** term - 1) / rate) * (1 + rate);
+                document.getElementById('sipResult').textContent = `Future Value: ${futureValue.toFixed(2)}`;
+            } else {
+                document.getElementById('sipResult').textContent = 'Please enter valid values';
+            }
+        }
+
+        function calculateFD() {
+            const amount = parseFloat(document.getElementById('fdAmount').value);
+            const rate = parseFloat(document.getElementById('fdRate').value) / 100;
+            const term = parseFloat(document.getElementById('fdTerm').value);
+            if (amount > 0 && rate >= 0 && term > 0) {
+                const maturity = amount * (1 + rate) ** term;
+                document.getElementById('fdResult').textContent = `Maturity Amount: ${maturity.toFixed(2)}`;
+            } else {
+                document.getElementById('fdResult').textContent = 'Please enter valid values';
+            }
+        }
+
+        function calculateRD() {
+            const amount = parseFloat(document.getElementById('rdAmount').value);
+            const rate = parseFloat(document.getElementById('rdRate').value) / 100 / 12;
+            const term = parseFloat(document.getElementById('rdTerm').value) * 12;
+            if (amount > 0 && rate >= 0 && term > 0) {
+                const maturity = amount * (((1 + rate) ** term - 1) / rate) * (1 + rate);
+                document.getElementById('rdResult').textContent = `Maturity Amount: ${maturity.toFixed(2)}`;
+            } else {
+                document.getElementById('rdResult').textContent = 'Please enter valid values';
+            }
+        }
+
+        function calculateDiscount() {
+            const price = parseFloat(document.getElementById('discPrice').value);
+            const rate = parseFloat(document.getElementById('discRate').value);
+            if (price >= 0 && rate >= 0) {
+                const discount = (price * rate) / 100;
+                document.getElementById('discResult').textContent = `Discount: ${discount.toFixed(2)}, Final Price: ${(price - discount).toFixed(2)}`;
+            } else {
+                document.getElementById('discResult').textContent = 'Please enter valid values';
+            }
+        }
+
+        function calculateTax() {
+            const income = parseFloat(document.getElementById('taxIncome').value);
+            if (income >= 0) {
+                let tax = 0;
+                if (income > 500000) tax = (income - 500000) * 0.2 + 30000; // Simplified slab
+                else if (income > 300000) tax = (income - 300000) * 0.05;
+                document.getElementById('taxResult').textContent = `Tax: ${tax.toFixed(2)}`;
+            } else {
+                document.getElementById('taxResult').textContent = 'Please enter a valid income';
+            }
+        }
+
+        function convertCurrency() {
+            const amount = parseFloat(document.getElementById('amount').value);
+            const fromCurrency = document.getElementById('fromCurrency').value;
+            const toCurrency = document.getElementById('toCurrency').value;
+            const rates = {
+                USD: { USD: 1, EUR: 0.92, INR: 83.5 },
+                EUR: { USD: 1.09, EUR: 1, INR: 90.8 },
+                INR: { USD: 0.012, EUR: 0.011, INR: 1 }
+            };
+            if (amount > 0) {
+                const result = (amount * rates[fromCurrency][toCurrency]).toFixed(2);
+                document.getElementById('currencyResult').textContent = `${amount} ${fromCurrency} = ${result} ${toCurrency}`;
+            } else {
+                document.getElementById('currencyResult').textContent = 'Please enter a valid amount';
+            }
+        }
+
+        function convertUnit() {
+            const value = parseFloat(document.getElementById('unitValue').value);
+            const type = document.getElementById('unitType').value;
+            if (value >= 0) {
+                let result;
+                if (type === 'length') result = value / 1000; // m to km
+                else result = value * 1000; // kg to g
+                document.getElementById('unitResult').textContent = `Result: ${result.toFixed(2)} ${type === 'length' ? 'km' : 'g'}`;
+            } else {
+                document.getElementById('unitResult').textContent = 'Please enter a valid value';
+            }
+        }
+
+        function convertTemperature() {
+            const value = parseFloat(document.getElementById('tempValue').value);
+            const unit = document.getElementById('tempUnit').value;
+            if (!isNaN(value)) {
+                let result;
+                if (unit === 'CtoF') result = (value * 9/5) + 32;
+                else result = (value - 32) * 5/9;
+                document.getElementById('tempResult').textContent = `Result: ${result.toFixed(2)} ${unit === 'CtoF' ? '°F' : '°C'}`;
+            } else {
+                document.getElementById('tempResult').textContent = 'Please enter a valid temperature';
+            }
+        }
+
+        function calculateAge() {
+            const dob = new Date(document.getElementById('dob').value);
+            if (dob) {
+                const today = new Date();
+                let age = today.getFullYear() - dob.getFullYear();
+                if (today.getMonth() < dob.getMonth() || (today.getMonth() === dob.getMonth() && today.getDate() < dob.getDate())) age--;
+                document.getElementById('ageResult').textContent = `Age: ${age} years`;
+            } else {
+                document.getElementById('ageResult').textContent = 'Please enter a valid date';
+            }
+        }
+
+        function calculateDate() {
+            const date1 = new Date(document.getElementById('date1').value);
+            const date2 = new Date(document.getElementById('date2').value);
+            if (date1 && date2) {
+                const diff = Math.abs(date2 - date1) / (1000 * 60 * 60 * 24);
+                document.getElementById('dateResult').textContent = `Difference: ${Math.floor(diff)} days`;
+            } else {
+                document.getElementById('dateResult').textContent = 'Please enter valid dates';
+            }
+        }
+
+        function calculateTime() {
+            const time1 = document.getElementById('time1').value;
+            const time2 = document.getElementById('time2').value;
+            if (time1 && time2) {
+                const [h1, m1] = time1.split(':').map(Number);
+                const [h2, m2] = time2.split(':').map(Number);
+                const diff = Math.abs((h2 * 60 + m2) - (h1 * 60 + m1));
+                document.getElementById('timeResult').textContent = `Difference: ${Math.floor(diff / 60)}h ${diff % 60}m`;
+            } else {
+                document.getElementById('timeResult').textContent = 'Please enter valid times';
+            }
+        }
+
+        function calculateArea() {
+            const length = parseFloat(document.getElementById('areaLength').value);
+            const width = parseFloat(document.getElementById('areaWidth').value);
+            if (length >= 0 && width >= 0) {
+                const area = length * width;
+                document.getElementById('areaResult').textContent = `Area: ${area.toFixed(2)} sq units`;
+            } else {
+                document.getElementById('areaResult').textContent = 'Please enter valid values';
+            }
+        }
+
+        function calculateVolume() {
+            const length = parseFloat(document.getElementById('volLength').value);
+            const width = parseFloat(document.getElementById('volWidth').value);
+            const height = parseFloat(document.getElementById('volHeight').value);
+            if (length >= 0 && width >= 0 && height >= 0) {
+                const volume = length * width * height;
+                document.getElementById('volResult').textContent = `Volume: ${volume.toFixed(2)} cu units`;
+            } else {
+                document.getElementById('volResult').textContent = 'Please enter valid values';
+            }
+        }
+
+        function calculateSpeed() {
+            const distance = parseFloat(document.getElementById('distance').value);
+            const time = parseFloat(document.getElementById('time').value);
+            if (distance >= 0 && time > 0) {
+                const speed = distance / time;
+                document.getElementById('speedResult').textContent = `Speed: ${speed.toFixed(2)} km/h`;
+            } else {
+                document.getElementById('speedResult').textContent = 'Please enter valid values';
+            }
+        }
+
+        function calculateSqrt() {
+            const value = parseFloat(document.getElementById('sqrtValue').value);
+            if (value >= 0) {
+                const sqrt = Math.sqrt(value);
+                document.getElementById('sqrtResult').textContent = `Square Root: ${sqrt.toFixed(2)}`;
+            } else {
+                document.getElementById('sqrtResult').textContent = 'Please enter a valid number';
+            }
+        }
+
+        function calculateSquareCube() {
+            const value = parseFloat(document.getElementById('scValue').value);
+            if (!isNaN(value)) {
+                const square = value ** 2;
+                const cube = value ** 3;
+                document.getElementById('scResult').textContent = `Square: ${square}, Cube: ${cube}`;
+            } else {
+                document.getElementById('scResult').textContent = 'Please enter a valid number';
+            }
+        }
+
+        function calculateLove() {
+            const name1 = document.getElementById('name1').value;
+            const name2 = document.getElementById('name2').value;
+            if (name1 && name2) {
+                const score = Math.floor(Math.random() * 100) + 1;
+                document.getElementById('loveResult').textContent = `Love Score: ${score}%`;
+            } else {
+                document.getElementById('loveResult').textContent = 'Please enter both names';
+            }
+        }
+
+        function convertNumToWord() {
+            const num = parseInt(document.getElementById('numToWord').value);
+            if (num >= 0 && num <= 100) {
+                const words = ['Zero', 'One', 'Two', /* ... */ 'Hundred']; // Simplified
+                document.getElementById('numToWordResult').textContent = `Result: ${words[num] || num}`;
+            } else {
+                document.getElementById('numToWordResult').textContent = 'Please enter a number (0-100)';
+            }
+        }
+
+        function convertWordToNum() {
+            const word = document.getElementById('wordToNum').value.toLowerCase();
+            const wordMap = { 'zero': 0, 'one': 1, 'two': 2, /* ... */ 'hundred': 100 }; // Simplified
+            if (wordMap[word]) {
+                document.getElementById('wordToNumResult').textContent = `Result: ${wordMap[word]}`;
+            } else {
+                document.getElementById('wordToNumResult').textContent = 'Please enter a valid word (e.g., one)';
+            }
+        }
+
+        function calculateIP() {
+            const ip = document.getElementById('ipAddress').value;
+            const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
+            if (ipRegex.test(ip)) {
+                const subnet = ip.split('.').slice(0, 3).join('.') + '.0'; // Simplified
+                document.getElementById('ipResult').textContent = `Subnet: ${subnet}/24`;
+            } else {
+                document.getElementById('ipResult').textContent = 'Please enter a valid IP address';
+            }
+        }
+    </script>
+</body>
+</html>
